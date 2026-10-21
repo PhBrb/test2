@@ -49,6 +49,9 @@ h1 {
     background: #111;
     border: 2px solid #333;
     border-radius: 5px;
+    width: 300px;
+    height: 600px;
+    display: block;
 }
 
 .next-piece {
@@ -67,6 +70,9 @@ h1 {
 #next {
     background: #111;
     border-radius: 5px;
+    width: 120px;
+    height: 120px;
+    display: block;
 }
 
 .controls {
