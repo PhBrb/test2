@@ -50,12 +50,12 @@ class Particle {
         this.x = x;
         this.y = y;
         this.color = color;
-        this.size = Math.random() * 4 + 2;
-        this.speedX = Math.random() * 6 - 3;
-        this.speedY = Math.random() * 6 - 3;
-        this.life = 100;
-        this.maxLife = 100;
-        this.gravity = 0.1;
+        this.size = Math.random() * 3 + 1.5;
+        this.speedX = Math.random() * 4 - 2;
+        this.speedY = Math.random() * -3 - 1;
+        this.life = 60;
+        this.maxLife = 60;
+        this.gravity = 0.05;
     }
     
     update() {
