@@ -53,6 +53,10 @@ function init() {
     ctx.scale(BLOCK_SIZE, BLOCK_SIZE);
     nextCtx.scale(BLOCK_SIZE / 2, BLOCK_SIZE / 2);
     
+    // Set line width after scaling so it's 1px in screen coordinates
+    ctx.lineWidth = 1 / BLOCK_SIZE;
+    nextCtx.lineWidth = 1 / (BLOCK_SIZE / 2);
+    
     // Create empty board
     createBoard();
     
