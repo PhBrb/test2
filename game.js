@@ -47,15 +47,15 @@ let lastUpdateTime = 0;
 // Particle class
 class Particle {
     constructor(x, y, color) {
-        this.x = x;
-        this.y = y;
+        this.x = x * BLOCK_SIZE + BLOCK_SIZE / 2;
+        this.y = y * BLOCK_SIZE + BLOCK_SIZE / 2;
         this.color = color;
-        this.size = Math.random() * 0.3 + 0.15;
-        this.speedX = Math.random() * 0.2 - 0.1;
-        this.speedY = Math.random() * -0.15 - 0.05;
+        this.radius = Math.random() * 3 + 2;
+        this.speedX = (Math.random() * 4 - 2) * BLOCK_SIZE / 60;
+        this.speedY = (Math.random() * -3 - 1) * BLOCK_SIZE / 60;
         this.life = 60;
         this.maxLife = 60;
-        this.gravity = 0.005;
+        this.gravity = BLOCK_SIZE / 1200;
     }
     
     update() {
@@ -66,15 +66,15 @@ class Particle {
         return this.life > 0;
     }
     
-    draw(context, scale) {
+    draw(context) {
         context.save();
         context.globalAlpha = this.life / this.maxLife;
         context.fillStyle = this.color;
         context.beginPath();
         context.arc(
-            this.x * scale,
-            this.y * scale,
-            this.size * scale,
+            this.x,
+            this.y,
+            this.radius,
             0,
             Math.PI * 2
         );
@@ -231,12 +231,11 @@ function drawPiece(piece) {
 
 // Draw particles
 function drawParticles() {
-    const scale = BLOCK_SIZE;
     ctx.save();
     ctx.resetTransform();
     
     for (const particle of particles) {
-        particle.draw(ctx, scale);
+        particle.draw(ctx);
     }
     
     ctx.restore();
