@@ -41,6 +41,47 @@ let isPaused = false;
 let dropStart;
 let lastTime = 0;
 let dropInterval = 1000;
+let particles = [];
+let lastUpdateTime = 0;
+
+// Particle class
+class Particle {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.size = Math.random() * 4 + 2;
+        this.speedX = Math.random() * 6 - 3;
+        this.speedY = Math.random() * 6 - 3;
+        this.life = 100;
+        this.maxLife = 100;
+        this.gravity = 0.1;
+    }
+    
+    update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        this.speedY += this.gravity;
+        this.life--;
+        return this.life > 0;
+    }
+    
+    draw(context, scale) {
+        context.save();
+        context.globalAlpha = this.life / this.maxLife;
+        context.fillStyle = this.color;
+        context.beginPath();
+        context.arc(
+            this.x * scale,
+            this.y * scale,
+            this.size / 2 * scale,
+            0,
+            Math.PI * 2
+        );
+        context.fill();
+        context.restore();
+    }
+}
 
 // Initialize the game
 function init() {
@@ -70,6 +111,28 @@ function init() {
     
     // Add event listeners
     document.addEventListener('keydown', control);
+    
+    // Add pause overlay styling
+    const style = document.createElement('style');
+    style.textContent = `
+        .pause-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            font-size: 48px;
+            font-weight: bold;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+            z-index: 100;
+        }
+    `;
+    document.head.appendChild(style);
 }
 
 // Create empty board
@@ -93,14 +156,47 @@ function draw() {
     ctx.fillStyle = '#111';
     ctx.fillRect(0, 0, COLS, ROWS);
     
+    // Draw grid lines
+    drawGrid();
+    
     // Draw board
     drawBoard();
     
     // Draw current piece
     drawPiece(currentPiece);
     
+    // Draw particles
+    drawParticles();
+    
     // Draw next piece preview
     drawNext();
+    
+    // Draw pause overlay if paused
+    if (isPaused && !gameOver) {
+        drawPauseOverlay();
+    }
+}
+
+// Draw grid lines
+function drawGrid() {
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 1 / BLOCK_SIZE;
+    
+    // Vertical lines
+    for (let x = 0; x <= COLS; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, ROWS);
+        ctx.stroke();
+    }
+    
+    // Horizontal lines
+    for (let y = 0; y <= ROWS; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(COLS, y);
+        ctx.stroke();
+    }
 }
 
 // Draw the board
@@ -119,6 +215,8 @@ function drawBoard() {
 
 // Draw current piece
 function drawPiece(piece) {
+    if (!piece) return;
+    
     for (let y = 0; y < piece.shape.length; y++) {
         for (let x = 0; x < piece.shape[y].length; x++) {
             if (piece.shape[y][x]) {
@@ -131,10 +229,39 @@ function drawPiece(piece) {
     }
 }
 
+// Draw particles
+function drawParticles() {
+    const scale = BLOCK_SIZE;
+    ctx.save();
+    ctx.resetTransform();
+    
+    for (const particle of particles) {
+        particle.draw(ctx, scale);
+    }
+    
+    ctx.restore();
+}
+
 // Draw next piece preview
 function drawNext() {
     nextCtx.fillStyle = '#111';
     nextCtx.fillRect(0, 0, 6, 6);
+    
+    // Draw grid for next piece
+    nextCtx.strokeStyle = '#222';
+    nextCtx.lineWidth = 1 / (BLOCK_SIZE / 2);
+    for (let x = 0; x <= 6; x++) {
+        nextCtx.beginPath();
+        nextCtx.moveTo(x, 0);
+        nextCtx.lineTo(x, 6);
+        nextCtx.stroke();
+    }
+    for (let y = 0; y <= 6; y++) {
+        nextCtx.beginPath();
+        nextCtx.moveTo(0, y);
+        nextCtx.lineTo(6, y);
+        nextCtx.stroke();
+    }
     
     if (nextPiece) {
         const offsetX = 2 - Math.floor(nextPiece.shape[0].length / 2);
@@ -153,8 +280,24 @@ function drawNext() {
     }
 }
 
+// Draw pause overlay
+function drawPauseOverlay() {
+    ctx.save();
+    ctx.resetTransform();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#fff';
+    ctx.font = '48px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2);
+    ctx.restore();
+}
+
 // Check for collisions
 function collision(piece, offset = { x: 0, y: 0 }) {
+    if (!piece) return true;
+    
     for (let y = 0; y < piece.shape.length; y++) {
         for (let x = 0; x < piece.shape[y].length; x++) {
             if (piece.shape[y][x]) {
@@ -224,22 +367,42 @@ function lock() {
     dropStart = Date.now();
 }
 
-// Check for completed lines
+// Check for completed lines and create particles
 function checkLines() {
     let linesCleared = 0;
+    const linesToClear = [];
     
     for (let y = ROWS - 1; y >= 0; y--) {
         if (board[y].every(cell => cell !== 0)) {
-            // Remove the line
-            board.splice(y, 1);
-            // Add new empty line at top
-            board.unshift(Array(COLS).fill(0));
+            linesToClear.push(y);
             linesCleared++;
-            y++; // Check the same row again (now shifted down)
         }
     }
     
     if (linesCleared > 0) {
+        // Create particles for each cleared line
+        for (const y of linesToClear) {
+            for (let x = 0; x < COLS; x++) {
+                if (board[y][x]) {
+                    // Create multiple particles per block
+                    for (let i = 0; i < 5; i++) {
+                        particles.push(new Particle(
+                            x + 0.5,
+                            y + 0.5,
+                            COLORS[board[y][x]]
+                        ));
+                    }
+                }
+            }
+        }
+        
+        // Remove the lines
+        for (let i = linesToClear.length - 1; i >= 0; i--) {
+            const y = linesToClear[i];
+            board.splice(y, 1);
+            board.unshift(Array(COLS).fill(0));
+        }
+        
         // Update score
         const points = [0, 100, 300, 500, 800]; // Points for 0, 1, 2, 3, 4 lines
         score += points[linesCleared] * level;
@@ -264,25 +427,36 @@ function updateScore() {
 
 // Move piece
 function movePiece(piece, direction) {
-    if (!collision(piece, direction)) {
-        piece.pos.x += direction.x;
-        piece.pos.y += direction.y;
-        return true;
+    if (!piece || collision(piece, direction)) {
+        return false;
     }
-    return false;
+    piece.pos.x += direction.x;
+    piece.pos.y += direction.y;
+    return true;
 }
 
 // Hard drop
 function hardDrop() {
-    while (movePiece(currentPiece, { x: 0, y: 1 })) {
+    while (currentPiece && movePiece(currentPiece, { x: 0, y: 1 })) {
         // Keep moving down
     }
-    lock();
+    if (currentPiece) lock();
 }
 
 // Handle keyboard controls
 function control(e) {
-    if (gameOver || isPaused) return;
+    if (gameOver) return;
+    
+    if (e.keyCode === 80) { // P key
+        isPaused = !isPaused;
+        if (!isPaused) {
+            dropStart = Date.now();
+        }
+        draw();
+        return;
+    }
+    
+    if (isPaused) return;
     
     switch (e.keyCode) {
         case 37: // Left arrow
@@ -303,12 +477,6 @@ function control(e) {
         case 32: // Space
             hardDrop();
             break;
-        case 80: // P
-            isPaused = !isPaused;
-            if (!isPaused) {
-                dropStart = Date.now();
-            }
-            break;
     }
     
     draw();
@@ -316,17 +484,22 @@ function control(e) {
 
 // Update game state
 function update(time = 0) {
+    const now = Date.now();
+    const delta = now - dropStart;
+    
+    // Update particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+        if (!particles[i].update()) {
+            particles.splice(i, 1);
+        }
+    }
+    
+    draw();
+    
     if (gameOver || isPaused) {
-        draw();
         requestAnimationFrame(update);
         return;
     }
-    
-    const deltaTime = time - lastTime;
-    lastTime = time;
-    
-    const now = Date.now();
-    const delta = now - dropStart;
     
     if (delta > dropInterval) {
         if (!movePiece(currentPiece, { x: 0, y: 1 })) {
@@ -335,7 +508,6 @@ function update(time = 0) {
         dropStart = now;
     }
     
-    draw();
     requestAnimationFrame(update);
 }
 
